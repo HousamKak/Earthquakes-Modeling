@@ -1,3 +1,5 @@
+# statistical_tests.py
+
 """
 Statistical Tests and Information Criteria Calculations
 
@@ -49,10 +51,18 @@ def ad_test(data, dist_name):
     - ad_critical_values: array-like, critical values for significance levels.
     - ad_significance_levels: array-like, significance levels corresponding to the critical values.
     """
-    ad_result = stats.anderson(data, dist=dist_name)
-    ad_statistic = ad_result.statistic
-    ad_critical_values = ad_result.critical_values
-    ad_significance_levels = ad_result.significance_level
+    try:
+        ad_result = stats.anderson(data, dist=dist_name)
+        ad_statistic = ad_result.statistic
+        ad_critical_values = ad_result.critical_values
+        ad_significance_levels = ad_result.significance_level
+    except ValueError as e:
+        # Handle the exception for distributions not supported
+        print(f"Warning: Anderson-Darling test not applicable for distribution '{dist_name}'.")
+        print(f"Reason: {e}")
+        ad_statistic = np.nan
+        ad_critical_values = None
+        ad_significance_levels = None
     return ad_statistic, ad_critical_values, ad_significance_levels
 
 # -----------------------------------
@@ -75,11 +85,17 @@ def chi_square_test(data, dist_name, params, num_bins):
     """
     # Create histogram of observed data
     observed_freq, bin_edges = np.histogram(data, bins=num_bins)
+
     # Calculate expected frequencies based on the fitted distribution
     cdf_vals = getattr(stats, dist_name).cdf(bin_edges, *params)
     expected_freq = len(data) * np.diff(cdf_vals)
+
     # Adjust expected frequencies to avoid zeros
     expected_freq[expected_freq == 0] = 1e-6
+
+    # Adjust expected frequencies to ensure sums match
+    expected_freq *= observed_freq.sum() / expected_freq.sum()
+
     # Chi-Square Test
     chi_statistic, chi_p_value = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
     return chi_statistic, chi_p_value

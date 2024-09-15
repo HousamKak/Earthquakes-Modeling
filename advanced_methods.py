@@ -38,6 +38,10 @@ df = pd.read_csv('earthquake_data.csv')
 # Convert the 'time' column to datetime objects
 df['time'] = pd.to_datetime(df['time'])
 
+# Rename 'mag' column to 'magnitude' if necessary
+if 'magnitude' not in df.columns and 'mag' in df.columns:
+    df.rename(columns={'mag': 'magnitude'}, inplace=True)
+
 # Sort the DataFrame by time to ensure chronological order
 df = df.sort_values('time')
 
@@ -161,6 +165,8 @@ observed_freq, bin_edges = np.histogram(inter_event_times_test, bins=num_bins)
 expected_freq, _ = np.histogram(inter_event_times_hawkes, bins=bin_edges)
 # Adjust expected frequencies to avoid zeros
 expected_freq[expected_freq == 0] = 1e-6
+# Adjust expected frequencies to ensure sums match
+expected_freq *= observed_freq.sum() / expected_freq.sum()
 chi_statistic_hawkes, chi_p_value_hawkes = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
 
 # Display Goodness-of-Fit test results for Hawkes Process
@@ -174,13 +180,9 @@ print(f"Chi-Square Statistic: {chi_statistic_hawkes:.4f}, Chi-Square p-value: {c
 # -----------------------------------
 
 # Plot the actual inter-event times and the Hawkes process predictions
-plt.figure(figsize=(12, 8))
+plt.figure(figsize=(12, 6))
 plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
-
-# Plot predictions from the Hawkes process
 plt.plot(inter_event_times_hawkes, label='Hawkes Process Prediction', marker='^')
-
-# Add labels and legend
 plt.legend()
 plt.xlabel('Event Index in Test Set')
 plt.ylabel('Inter-Event Time (hours)')
@@ -292,11 +294,11 @@ if etas_model_available:
     ad_statistic_etas, _, _ = ad_test(np.concatenate([inter_event_times_test, inter_event_times_etas]), 'norm')
 
     # Chi-Square Goodness-of-Fit Test
-    # Create histograms and perform Chi-Square test
     observed_freq, bin_edges = np.histogram(inter_event_times_test, bins=num_bins)
     expected_freq, _ = np.histogram(inter_event_times_etas, bins=bin_edges)
-    # Adjust expected frequencies to avoid zeros
     expected_freq[expected_freq == 0] = 1e-6
+    # Adjust expected frequencies to ensure sums match
+    expected_freq *= observed_freq.sum() / expected_freq.sum()
     chi_statistic_etas, chi_p_value_etas = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
 
     # Display Goodness-of-Fit test results for ETAS Model
@@ -310,13 +312,9 @@ if etas_model_available:
     # -----------------------------------
 
     # Plot the actual inter-event times and the ETAS model predictions
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(12, 6))
     plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
-
-    # Plot predictions from the ETAS model
     plt.plot(inter_event_times_etas, label='Simplified ETAS Model Prediction', marker='*')
-
-    # Add labels and legend
     plt.legend()
     plt.xlabel('Event Index in Test Set')
     plt.ylabel('Inter-Event Time (hours)')
@@ -324,7 +322,7 @@ if etas_model_available:
     plt.show()
 
 # ===================================
-# Time-Varying Models Implementation
+# Time-Varying Poisson Model Implementation
 # ===================================
 
 # -----------------------------------
@@ -377,7 +375,7 @@ expected_events_tv = lambda_test * total_time_test
 # Actual number of events in test set
 actual_events_test = len(inter_event_times_test)
 
-print(f"\nTime-Varying Model Expected Number of Events: {expected_events_tv:.2f}")
+print(f"\nTime-Varying Poisson Model Expected Number of Events: {expected_events_tv:.2f}")
 print(f"Actual Number of Events in Test Period: {actual_events_test}")
 
 # Calculate error metrics for counts
@@ -410,6 +408,26 @@ chi_statistic_tv = ((observed_counts - expected_counts) ** 2) / expected_counts
 chi_p_value_tv = 1 - stats.chi2.cdf(chi_statistic_tv, df=1)
 
 print(f"\nChi-Square Statistic for Time-Varying Poisson Model: {chi_statistic_tv:.4f}, p-value: {chi_p_value_tv:.4f}")
+
+# -----------------------------------
+# Step C5: Visualize Time-Varying Poisson Model Predictions
+# -----------------------------------
+
+# Since the Time-Varying Poisson model predicts counts rather than individual inter-event times,
+# we can simulate inter-event times based on the estimated lambda for visualization.
+
+# Simulate inter-event times using an exponential distribution with rate lambda_test
+simulated_inter_event_times_tv = np.random.exponential(scale=1/lambda_test, size=actual_events_test)
+
+# Plot the actual inter-event times and the Time-Varying Poisson model predictions
+plt.figure(figsize=(12, 6))
+plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
+plt.plot(simulated_inter_event_times_tv, label='Time-Varying Poisson Prediction', marker='s')
+plt.legend()
+plt.xlabel('Event Index in Test Set')
+plt.ylabel('Inter-Event Time (hours)')
+plt.title('Actual vs. Time-Varying Poisson Model Predicted Inter-Event Times')
+plt.show()
 
 # -----------------------------------
 # Final Evaluation and Comparison

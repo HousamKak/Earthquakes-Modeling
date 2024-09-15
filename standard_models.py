@@ -1,3 +1,5 @@
+# standard_models.py
+
 """
 Earthquake Inter-Event Time Modeling - Standard Probability Distributions
 
@@ -42,6 +44,10 @@ df = pd.read_csv('earthquake_data.csv')
 # Convert the 'time' column to datetime objects
 df['time'] = pd.to_datetime(df['time'])
 
+# Rename 'mag' column to 'magnitude' if necessary
+if 'magnitude' not in df.columns and 'mag' in df.columns:
+    df.rename(columns={'mag': 'magnitude'}, inplace=True)
+
 # Sort the DataFrame by time to ensure chronological order
 df = df.sort_values('time')
 
@@ -76,7 +82,7 @@ weibull_params_train = stats.weibull_min.fit(inter_event_times_train)
 gamma_params_train = stats.gamma.fit(inter_event_times_train)
 
 # Fit the Log-Normal distribution to the training data
-lognorm_params_train = stats.lognorm.fit(inter_event_times_train)
+lognorm_params_train = stats.lognorm.fit(inter_event_times_train, floc=0)
 
 # -----------------------------------
 # Step 4: Perform Goodness-of-Fit Tests
@@ -90,11 +96,8 @@ distributions = {
     'Log-Normal': ('lognorm', lognorm_params_train)
 }
 
-# Initialize a DataFrame to store test results
-test_results = pd.DataFrame(columns=['Model', 'K-S Statistic', 'K-S p-value',
-                                     'A-D Statistic',
-                                     'Chi-Square Statistic', 'Chi-Square p-value',
-                                     'AIC', 'BIC'])
+# Initialize a list to store test results
+results_list = []
 
 # Number of bins for Chi-Square test (rule of thumb)
 num_bins = int(np.sqrt(len(inter_event_times_train)))
@@ -112,17 +115,15 @@ for name, (dist_name, params) in distributions.items():
     
     # Calculate Log-Likelihood
     pdf_vals = getattr(stats, dist_name).pdf(inter_event_times_train, *params)
+    pdf_vals[pdf_vals == 0] = 1e-8
     log_likelihood = np.sum(np.log(pdf_vals))
-    # Number of parameters (including location and scale)
     k = len(params)
-    # Number of observations
     n = len(inter_event_times_train)
-    # AIC and BIC
     aic = calculate_aic(log_likelihood, k)
     bic = calculate_bic(log_likelihood, k, n)
     
-    # Append results to DataFrame
-    test_results = test_results.append({
+    # Prepare the new row as a dictionary
+    new_row = {
         'Model': name,
         'K-S Statistic': ks_statistic,
         'K-S p-value': ks_p_value,
@@ -131,7 +132,13 @@ for name, (dist_name, params) in distributions.items():
         'Chi-Square p-value': chi_p_value,
         'AIC': aic,
         'BIC': bic
-    }, ignore_index=True)
+    }
+    
+    # Append the dictionary to the list
+    results_list.append(new_row)
+
+# After the loop, create the DataFrame
+test_results = pd.DataFrame(results_list)
 
 # Display Goodness-of-Fit test results
 print("Goodness-of-Fit Test Results on Training Data:")
@@ -190,19 +197,21 @@ print(evaluation_results)
 # Step 7: Visualize Actual vs. Predicted Inter-Event Times
 # -----------------------------------
 
-# Plot the actual inter-event times and the predictions
-plt.figure(figsize=(12, 8))
-plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
+# Create a list of tuples containing model names and their predictions
+model_predictions = [
+    ('Exponential', predicted_exp),
+    ('Weibull', predicted_weibull),
+    ('Gamma', predicted_gamma),
+    ('Log-Normal', predicted_lognorm)
+]
 
-# Plot predictions from each model
-plt.plot(predicted_exp, label='Exponential Prediction', marker='x')
-plt.plot(predicted_weibull, label='Weibull Prediction', marker='v')
-plt.plot(predicted_gamma, label='Gamma Prediction', marker='s')
-plt.plot(predicted_lognorm, label='Log-Normal Prediction', marker='d')
-
-# Add labels and legend
-plt.legend()
-plt.xlabel('Event Index in Test Set')
-plt.ylabel('Inter-Event Time (hours)')
-plt.title('Actual vs. Predicted Inter-Event Times')
-plt.show()
+# Loop over each model to create individual plots
+for model_name, predictions in model_predictions:
+    plt.figure(figsize=(12, 6))
+    plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
+    plt.plot(predictions, label=f'{model_name} Prediction', marker='x')
+    plt.legend()
+    plt.xlabel('Event Index in Test Set')
+    plt.ylabel('Inter-Event Time (hours)')
+    plt.title(f'Actual vs. Predicted Inter-Event Times - {model_name}')
+    plt.show()
