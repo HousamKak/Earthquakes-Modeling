@@ -80,8 +80,6 @@ evaluation_results = pd.DataFrame(columns=['Model', 'MAE', 'RMSE', 'MAPE (%)'])
 # Hawkes Process Implementation
 # ===================================
 
-# Implementing a basic Hawkes process
-
 # -----------------------------------
 # Step A1: Implementing a Basic Hawkes Process
 # -----------------------------------
@@ -90,9 +88,6 @@ evaluation_results = pd.DataFrame(columns=['Model', 'MAE', 'RMSE', 'MAPE (%)'])
 mu = 0.1       # Background intensity (events per hour)
 alpha = 0.5    # Excitation parameter
 beta = 1.0     # Decay rate of the exponential kernel
-
-# Total simulation time (match the test set duration)
-total_time = inter_event_times_test.sum()
 
 # Initialize lists to store event times
 event_times_hawkes = []
@@ -104,22 +99,21 @@ t = 0
 np.random.seed(42)
 
 # Simulate the Hawkes process
-while t < total_time:
+while len(event_times_hawkes) < len(inter_event_times_test):
     # Compute the conditional intensity function
     if len(event_times_hawkes) == 0:
         lambda_t = mu
     else:
         past_events = np.array(event_times_hawkes)
-        lambda_t = mu + np.sum(alpha * beta * np.exp(-beta * (t - past_events[past_events < t])))
+        lambda_t = mu + np.sum(alpha * beta * np.exp(-beta * (t - past_events)))
     
     # Generate the next event time using an exponential distribution
     u = np.random.uniform(0, 1)
     w = -np.log(u) / lambda_t
     t += w
     
-    # Accept the event
-    if t < total_time:
-        event_times_hawkes.append(t)
+    # Append the event time
+    event_times_hawkes.append(t)
 
 # Calculate inter-event times from the simulated event times
 inter_event_times_hawkes = np.diff([0] + event_times_hawkes)  # Include start time 0
@@ -138,51 +132,24 @@ mae_hawkes, rmse_hawkes, mape_hawkes = evaluate_predictions(
 )
 
 # Add Hawkes process results to the evaluation DataFrame
-evaluation_results = evaluation_results.append({
+new_row = {
     'Model': 'Hawkes Process',
     'MAE': mae_hawkes,
     'RMSE': rmse_hawkes,
     'MAPE (%)': mape_hawkes
-}, ignore_index=True)
+}
+evaluation_results = pd.concat([evaluation_results, pd.DataFrame([new_row])], ignore_index=True)
 
 print("\nEvaluation Results Including Hawkes Process:")
 print(evaluation_results)
 
 # -----------------------------------
-# Step A3: Goodness-of-Fit Tests for Hawkes Process
+# Step A3: Visualize Hawkes Process Predictions
 # -----------------------------------
 
-# K-S Test
-ks_statistic_hawkes, ks_p_value_hawkes = stats.ks_2samp(inter_event_times_test, inter_event_times_hawkes)
-
-# Anderson-Darling Test
-ad_statistic_hawkes, _, _ = ad_test(np.concatenate([inter_event_times_test, inter_event_times_hawkes]), 'norm')
-
-# Chi-Square Goodness-of-Fit Test
-# Create histograms and perform Chi-Square test
-num_bins = int(np.sqrt(len(inter_event_times_test)))
-observed_freq, bin_edges = np.histogram(inter_event_times_test, bins=num_bins)
-expected_freq, _ = np.histogram(inter_event_times_hawkes, bins=bin_edges)
-# Adjust expected frequencies to avoid zeros
-expected_freq[expected_freq == 0] = 1e-6
-# Adjust expected frequencies to ensure sums match
-expected_freq *= observed_freq.sum() / expected_freq.sum()
-chi_statistic_hawkes, chi_p_value_hawkes = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
-
-# Display Goodness-of-Fit test results for Hawkes Process
-print("\nGoodness-of-Fit Test Results for Hawkes Process:")
-print(f"K-S Statistic: {ks_statistic_hawkes:.4f}, K-S p-value: {ks_p_value_hawkes:.4f}")
-print(f"A-D Statistic: {ad_statistic_hawkes:.4f}")
-print(f"Chi-Square Statistic: {chi_statistic_hawkes:.4f}, Chi-Square p-value: {chi_p_value_hawkes:.4f}")
-
-# -----------------------------------
-# Step A4: Visualize Hawkes Process Predictions
-# -----------------------------------
-
-# Plot the actual inter-event times and the Hawkes process predictions
 plt.figure(figsize=(12, 6))
 plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
-plt.plot(inter_event_times_hawkes, label='Hawkes Process Prediction', marker='^')
+plt.plot(inter_event_times_hawkes, label='Hawkes Process Prediction', marker='x')
 plt.legend()
 plt.xlabel('Event Index in Test Set')
 plt.ylabel('Inter-Event Time (hours)')
@@ -220,9 +187,6 @@ if etas_model_available:
     alpha_m = 1.0   # Magnitude scaling factor
     M0 = magnitudes.min()  # Minimum magnitude
 
-    # Total simulation time (match the test set duration)
-    total_time = inter_event_times_test.sum()
-
     # Initialize lists to store event times and magnitudes
     event_times_etas = []
     event_magnitudes_etas = []
@@ -234,7 +198,7 @@ if etas_model_available:
     np.random.seed(42)
 
     # Simulate the ETAS process
-    while t < total_time:
+    while len(event_times_etas) < len(inter_event_times_test):
         # Compute the total intensity
         lambda_t = mu
         for ti, mi in zip(event_times_etas, event_magnitudes_etas):
@@ -245,9 +209,6 @@ if etas_model_available:
         u = np.random.uniform(0, 1)
         w = -np.log(u) / lambda_t
         t += w
-
-        if t >= total_time:
-            break
 
         # Append the event time
         event_times_etas.append(t)
@@ -273,48 +234,24 @@ if etas_model_available:
     )
 
     # Add ETAS model results to the evaluation DataFrame
-    evaluation_results = evaluation_results.append({
+    new_row = {
         'Model': 'Simplified ETAS Model',
         'MAE': mae_etas,
         'RMSE': rmse_etas,
         'MAPE (%)': mape_etas
-    }, ignore_index=True)
+    }
+    evaluation_results = pd.concat([evaluation_results, pd.DataFrame([new_row])], ignore_index=True)
 
     print("\nEvaluation Results Including Simplified ETAS Model:")
     print(evaluation_results)
 
     # -----------------------------------
-    # Step B4: Goodness-of-Fit Tests for ETAS Model
+    # Step B4: Visualize ETAS Model Predictions
     # -----------------------------------
 
-    # K-S Test
-    ks_statistic_etas, ks_p_value_etas = stats.ks_2samp(inter_event_times_test, inter_event_times_etas)
-
-    # Anderson-Darling Test
-    ad_statistic_etas, _, _ = ad_test(np.concatenate([inter_event_times_test, inter_event_times_etas]), 'norm')
-
-    # Chi-Square Goodness-of-Fit Test
-    observed_freq, bin_edges = np.histogram(inter_event_times_test, bins=num_bins)
-    expected_freq, _ = np.histogram(inter_event_times_etas, bins=bin_edges)
-    expected_freq[expected_freq == 0] = 1e-6
-    # Adjust expected frequencies to ensure sums match
-    expected_freq *= observed_freq.sum() / expected_freq.sum()
-    chi_statistic_etas, chi_p_value_etas = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
-
-    # Display Goodness-of-Fit test results for ETAS Model
-    print("\nGoodness-of-Fit Test Results for Simplified ETAS Model:")
-    print(f"K-S Statistic: {ks_statistic_etas:.4f}, K-S p-value: {ks_p_value_etas:.4f}")
-    print(f"A-D Statistic: {ad_statistic_etas:.4f}")
-    print(f"Chi-Square Statistic: {chi_statistic_etas:.4f}, Chi-Square p-value: {chi_p_value_etas:.4f}")
-
-    # -----------------------------------
-    # Step B5: Visualize ETAS Model Predictions
-    # -----------------------------------
-
-    # Plot the actual inter-event times and the ETAS model predictions
     plt.figure(figsize=(12, 6))
     plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
-    plt.plot(inter_event_times_etas, label='Simplified ETAS Model Prediction', marker='*')
+    plt.plot(inter_event_times_etas, label='Simplified ETAS Model Prediction', marker='x')
     plt.legend()
     plt.xlabel('Event Index in Test Set')
     plt.ylabel('Inter-Event Time (hours)')
@@ -349,7 +286,6 @@ for i in range(len(inter_event_times_train) - window_size + 1):
 # Step C2: Plot Time-Varying Event Rate
 # -----------------------------------
 
-# Plot the time-varying lambda
 plt.figure(figsize=(12, 6))
 plt.plot(time_t, lambda_t, marker='o')
 plt.xlabel('Time')
@@ -375,7 +311,7 @@ expected_events_tv = lambda_test * total_time_test
 # Actual number of events in test set
 actual_events_test = len(inter_event_times_test)
 
-print(f"\nTime-Varying Poisson Model Expected Number of Events: {expected_events_tv:.2f}")
+print(f"\nTime-Varying Model Expected Number of Events: {expected_events_tv:.2f}")
 print(f"Actual Number of Events in Test Period: {actual_events_test}")
 
 # Calculate error metrics for counts
@@ -383,51 +319,57 @@ count_error = abs(expected_events_tv - actual_events_test)
 count_percentage_error = (count_error / actual_events_test) * 100
 
 # Add Time-Varying model results to the evaluation DataFrame
-evaluation_results = evaluation_results.append({
+new_row = {
     'Model': 'Time-Varying Poisson',
     'MAE': count_error,
     'RMSE': np.sqrt(count_error**2),
     'MAPE (%)': count_percentage_error
-}, ignore_index=True)
+}
+evaluation_results = pd.concat([evaluation_results, pd.DataFrame([new_row])], ignore_index=True)
 
 print("\nEvaluation Results Including Time-Varying Poisson Model:")
 print(evaluation_results)
 
 # -----------------------------------
-# Step C4: Goodness-of-Fit Tests for Time-Varying Poisson Model
+# Step C4: Visualize Time-Varying Poisson Model Predictions
 # -----------------------------------
 
-# Since the Time-Varying Poisson model predicts counts, we can compare the observed and expected counts using Chi-Square test
+# Create a time series of cumulative counts for the actual test data
+cumulative_counts_actual = np.arange(1, len(inter_event_times_test) + 1)
+cumulative_time_actual = np.cumsum(inter_event_times_test)
 
-# Chi-Square Test
-observed_counts = actual_events_test
-expected_counts = expected_events_tv
+# Debugging: Check if inter_event_times_test and cumulative_time_actual are populated correctly
+print(f"Length of inter_event_times_test: {len(inter_event_times_test)}")
+print(f"inter_event_times_test: {inter_event_times_test}")
+print(f"cumulative_time_actual: {cumulative_time_actual}")
 
-# To perform the Chi-Square test with one degree of freedom:
-chi_statistic_tv = ((observed_counts - expected_counts) ** 2) / expected_counts
-chi_p_value_tv = 1 - stats.chi2.cdf(chi_statistic_tv, df=1)
+# Ensure cumulative_time_actual is not empty
+if len(cumulative_time_actual) == 0:
+    raise ValueError("cumulative_time_actual is empty. Ensure that inter_event_times_test has valid values.")
 
-print(f"\nChi-Square Statistic for Time-Varying Poisson Model: {chi_statistic_tv:.4f}, p-value: {chi_p_value_tv:.4f}")
+# Create a time series of cumulative counts for the expected counts based on the model
+expected_event_rate = lambda_test  # Events per hour
 
-# -----------------------------------
-# Step C5: Visualize Time-Varying Poisson Model Predictions
-# -----------------------------------
+# Ensure cumulative_time_actual has values before calculating max_time
+if len(cumulative_time_actual) > 0:
+    max_time = cumulative_time_actual.iloc[-1]  # Use .iloc[-1] to get the last element safely
+else:
+    max_time = 0
 
-# Since the Time-Varying Poisson model predicts counts rather than individual inter-event times,
-# we can simulate inter-event times based on the estimated lambda for visualization.
+# Generate expected cumulative counts over the test period
+time_steps = np.linspace(0, max_time, len(inter_event_times_test))
+cumulative_counts_expected = expected_event_rate * time_steps
 
-# Simulate inter-event times using an exponential distribution with rate lambda_test
-simulated_inter_event_times_tv = np.random.exponential(scale=1/lambda_test, size=actual_events_test)
-
-# Plot the actual inter-event times and the Time-Varying Poisson model predictions
+# Plot the cumulative counts
 plt.figure(figsize=(12, 6))
-plt.plot(inter_event_times_test.values, label='Actual Inter-Event Times', marker='o')
-plt.plot(simulated_inter_event_times_tv, label='Time-Varying Poisson Prediction', marker='s')
+plt.plot(cumulative_time_actual, cumulative_counts_actual, label='Actual Cumulative Counts', marker='o')
+plt.plot(time_steps, cumulative_counts_expected, label='Predicted Cumulative Counts (Time-Varying Poisson)', marker='x')
 plt.legend()
-plt.xlabel('Event Index in Test Set')
-plt.ylabel('Inter-Event Time (hours)')
-plt.title('Actual vs. Time-Varying Poisson Model Predicted Inter-Event Times')
+plt.xlabel('Time (hours)')
+plt.ylabel('Cumulative Event Count')
+plt.title('Actual vs. Predicted Cumulative Counts - Time-Varying Poisson Model')
 plt.show()
+
 
 # -----------------------------------
 # Final Evaluation and Comparison
