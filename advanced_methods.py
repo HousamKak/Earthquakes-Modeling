@@ -8,15 +8,7 @@ This script implements the following advanced modeling approaches:
 2. Simplified Epidemic-Type Aftershock Sequence (ETAS) Model
 3. Time-Varying Poisson Model
 
-Additional Tests:
-- Kolmogorov-Smirnov (K-S) Test
-- Anderson-Darling Test
-- Chi-Square Goodness-of-Fit Test
-- Information Criteria (AIC and BIC)
-
-Note:
-- Assumes that the data has been prepared similarly to the standard models.
-- The 'magnitude' column is required for the ETAS model.
+Uses statistical tests from statistical_tests.py
 """
 
 # -----------------------------------
@@ -28,6 +20,9 @@ import numpy as np                 # For numerical computations
 from scipy import stats            # For statistical distributions and tests
 import matplotlib.pyplot as plt    # For plotting
 from sklearn.metrics import mean_absolute_error, mean_squared_error  # For evaluation metrics
+
+# Import statistical test functions
+from statistical_tests import ks_test, ad_test, chi_square_test, calculate_aic, calculate_bic
 
 # Suppress warnings for cleaner output
 import warnings
@@ -81,7 +76,7 @@ evaluation_results = pd.DataFrame(columns=['Model', 'MAE', 'RMSE', 'MAPE (%)'])
 # Hawkes Process Implementation
 # ===================================
 
-# Since we are not using 'tick', we will implement a basic Hawkes process manually.
+# Implementing a basic Hawkes process
 
 # -----------------------------------
 # Step A1: Implementing a Basic Hawkes Process
@@ -153,19 +148,26 @@ print(evaluation_results)
 # Step A3: Goodness-of-Fit Tests for Hawkes Process
 # -----------------------------------
 
-# Since the Hawkes process is a point process, traditional goodness-of-fit tests may not be directly applicable.
-# However, we can compare the empirical distribution of inter-event times with the simulated inter-event times.
-
 # K-S Test
 ks_statistic_hawkes, ks_p_value_hawkes = stats.ks_2samp(inter_event_times_test, inter_event_times_hawkes)
 
 # Anderson-Darling Test
-ad_statistic_hawkes, ad_critical_values, ad_significance_levels = stats.anderson_ksamp([inter_event_times_test, inter_event_times_hawkes])
+ad_statistic_hawkes, _, _ = ad_test(np.concatenate([inter_event_times_test, inter_event_times_hawkes]), 'norm')
+
+# Chi-Square Goodness-of-Fit Test
+# Create histograms and perform Chi-Square test
+num_bins = int(np.sqrt(len(inter_event_times_test)))
+observed_freq, bin_edges = np.histogram(inter_event_times_test, bins=num_bins)
+expected_freq, _ = np.histogram(inter_event_times_hawkes, bins=bin_edges)
+# Adjust expected frequencies to avoid zeros
+expected_freq[expected_freq == 0] = 1e-6
+chi_statistic_hawkes, chi_p_value_hawkes = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
 
 # Display Goodness-of-Fit test results for Hawkes Process
 print("\nGoodness-of-Fit Test Results for Hawkes Process:")
 print(f"K-S Statistic: {ks_statistic_hawkes:.4f}, K-S p-value: {ks_p_value_hawkes:.4f}")
-print(f"Anderson-Darling Statistic: {ad_statistic_hawkes:.4f}, Significance Level: {ad_significance_levels}")
+print(f"A-D Statistic: {ad_statistic_hawkes:.4f}")
+print(f"Chi-Square Statistic: {chi_statistic_hawkes:.4f}, Chi-Square p-value: {chi_p_value_hawkes:.4f}")
 
 # -----------------------------------
 # Step A4: Visualize Hawkes Process Predictions
@@ -287,12 +289,21 @@ if etas_model_available:
     ks_statistic_etas, ks_p_value_etas = stats.ks_2samp(inter_event_times_test, inter_event_times_etas)
 
     # Anderson-Darling Test
-    ad_statistic_etas, ad_critical_values_etas, ad_significance_levels_etas = stats.anderson_ksamp([inter_event_times_test, inter_event_times_etas])
+    ad_statistic_etas, _, _ = ad_test(np.concatenate([inter_event_times_test, inter_event_times_etas]), 'norm')
+
+    # Chi-Square Goodness-of-Fit Test
+    # Create histograms and perform Chi-Square test
+    observed_freq, bin_edges = np.histogram(inter_event_times_test, bins=num_bins)
+    expected_freq, _ = np.histogram(inter_event_times_etas, bins=bin_edges)
+    # Adjust expected frequencies to avoid zeros
+    expected_freq[expected_freq == 0] = 1e-6
+    chi_statistic_etas, chi_p_value_etas = stats.chisquare(f_obs=observed_freq, f_exp=expected_freq)
 
     # Display Goodness-of-Fit test results for ETAS Model
     print("\nGoodness-of-Fit Test Results for Simplified ETAS Model:")
     print(f"K-S Statistic: {ks_statistic_etas:.4f}, K-S p-value: {ks_p_value_etas:.4f}")
-    print(f"Anderson-Darling Statistic: {ad_statistic_etas:.4f}, Significance Level: {ad_significance_levels_etas}")
+    print(f"A-D Statistic: {ad_statistic_etas:.4f}")
+    print(f"Chi-Square Statistic: {chi_statistic_etas:.4f}, Chi-Square p-value: {chi_p_value_etas:.4f}")
 
     # -----------------------------------
     # Step B5: Visualize ETAS Model Predictions
@@ -330,8 +341,8 @@ time_t = []
 # Calculate the time-varying lambda using a moving window
 for i in range(len(inter_event_times_train) - window_size + 1):
     window_events = inter_event_times_train[i:i+window_size]
-    total_time = window_events.sum()
-    lambda_window = window_size / total_time  # Events per hour
+    total_time_window = window_events.sum()
+    lambda_window = window_size / total_time_window  # Events per hour
     lambda_t.append(lambda_window)
     # Use the midpoint time of the window
     time_t.append(df['time'].iloc[i + window_size // 2])
@@ -363,7 +374,7 @@ total_time_test = inter_event_times_test.sum()
 # Expected number of events in the test period
 expected_events_tv = lambda_test * total_time_test
 
-# Actual number of events in the test set
+# Actual number of events in test set
 actual_events_test = len(inter_event_times_test)
 
 print(f"\nTime-Varying Model Expected Number of Events: {expected_events_tv:.2f}")
@@ -388,7 +399,7 @@ print(evaluation_results)
 # Step C4: Goodness-of-Fit Tests for Time-Varying Poisson Model
 # -----------------------------------
 
-# Since the Time-Varying Poisson model provides an expected count, we can compare the observed and expected counts.
+# Since the Time-Varying Poisson model predicts counts, we can compare the observed and expected counts using Chi-Square test
 
 # Chi-Square Test
 observed_counts = actual_events_test
