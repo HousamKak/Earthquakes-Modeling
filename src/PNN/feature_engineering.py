@@ -1,5 +1,3 @@
-# feature_engineering.py
-
 import pandas as pd
 import numpy as np
 
@@ -12,6 +10,9 @@ class FeatureEngineering:
         """
         Computes the slope (b-value) of the Gutenberg-Richter law.
         """
+        # Filter valid numeric magnitudes
+        magnitudes = magnitudes[~np.isnan(magnitudes)]
+        
         if len(magnitudes) > 1:
             sorted_mags = np.sort(magnitudes)
             N = np.array([len(sorted_mags[sorted_mags >= mag]) for mag in sorted_mags])
@@ -26,7 +27,18 @@ class FeatureEngineering:
         """
         Extracts seismicity indicators as per the paper.
         """
-        df['time'] = pd.to_datetime(df['time'])
+        # Convert the 'time' column to datetime, using errors='coerce' to handle invalid formats
+        df['time'] = pd.to_datetime(df['time'], errors='coerce')
+
+        # Drop rows where 'time' is NaT (invalid times)
+        df = df.dropna(subset=['time'])
+
+        # Convert 'mag' column to numeric, forcing errors to NaN
+        df['mag'] = pd.to_numeric(df['mag'], errors='coerce')
+
+        # Drop rows with NaN magnitudes
+        df = df.dropna(subset=['mag'])
+
         df = df.sort_values('time').reset_index(drop=True)
 
         features = {

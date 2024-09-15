@@ -6,11 +6,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
-from src.PNN.feature_engineering import FeatureEngineering
-from src.PNN.pnn_model import ProbabilisticNeuralNetwork
+from feature_engineering import FeatureEngineering
+from pnn_model import ProbabilisticNeuralNetwork
 
 # Load the data
-data_path = './data/earthquake_data.csv'
+data_path = './src/data/earthquake_data.csv'
 df = pd.read_csv(data_path)
 
 # Feature Engineering
@@ -56,5 +56,4 @@ plt.colorbar()
 plt.title('Confusion Matrix', pad=20)
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
-plt.savefig('./visuals/evaluation_plot.png')
 plt.show()
