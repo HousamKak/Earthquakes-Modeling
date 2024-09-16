@@ -34,18 +34,20 @@ X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, 
 model_filename = 'trained_pnn_model.pkl'
 
 if os.path.exists(model_filename):
-    # Load the existing PNN model
-    print(f"Model '{model_filename}' found. Loading the existing model.")
-    pnn = joblib.load(model_filename)
+    # Delete the existing model
+    print(f"Model '{model_filename}' found. Deleting the existing model.")
+    os.remove(model_filename)
+    print(f"Deleted '{model_filename}'. Retraining the model.")
 else:
-    # Initialize and train the PNN if the model doesn't exist
     print(f"Model '{model_filename}' not found. Training a new model.")
-    pnn = ProbabilisticNeuralNetwork(sigma=1.0)
-    pnn.fit(X_train, y_train)
-    
-    # Save the trained PNN model to a file
-    joblib.dump(pnn, model_filename)
-    print(f"New model saved as '{model_filename}'.")
+
+# Initialize and train the PNN
+pnn = ProbabilisticNeuralNetwork(sigma=1.0)
+pnn.fit(X_train, y_train)
+
+# Save the trained PNN model to a file
+joblib.dump(pnn, model_filename)
+print(f"New model saved as '{model_filename}'.")
 
 # Predict on the test set
 y_pred = pnn.predict(X_test)
