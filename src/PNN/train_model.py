@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import joblib
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -28,9 +30,22 @@ X_scaled = scaler.fit_transform(X)
 # Split into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-# Initialize and train the PNN
-pnn = ProbabilisticNeuralNetwork(sigma=1.0)
-pnn.fit(X_train, y_train)
+# Check if the PNN model file exists
+model_filename = 'trained_pnn_model.pkl'
+
+if os.path.exists(model_filename):
+    # Load the existing PNN model
+    print(f"Model '{model_filename}' found. Loading the existing model.")
+    pnn = joblib.load(model_filename)
+else:
+    # Initialize and train the PNN if the model doesn't exist
+    print(f"Model '{model_filename}' not found. Training a new model.")
+    pnn = ProbabilisticNeuralNetwork(sigma=1.0)
+    pnn.fit(X_train, y_train)
+    
+    # Save the trained PNN model to a file
+    joblib.dump(pnn, model_filename)
+    print(f"New model saved as '{model_filename}'.")
 
 # Predict on the test set
 y_pred = pnn.predict(X_test)

@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     start_year = 2000
     start_month = 1
-    num_months = 2
+    num_months = 1
     
     # Specify the minimum magnitude
     min_magnitude = 0
