@@ -1,26 +1,8 @@
-# retrieve_data.py
-
-"""
-Script to Retrieve Earthquake Data from USGS Earthquake API by Month
-
-This script fetches earthquake data from the USGS Earthquake API in monthly chunks 
-and appends the results into a CSV file named 'earthquake_data.csv'.
-
-Parameters:
-- Start year and month
-- Number of months to fetch
-- Minimum magnitude
-"""
-
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
-# -----------------------------------
-# Step 1: Define a function to fetch data for a single month
-# -----------------------------------
-
-def fetch_data(start_time, end_time, min_magnitude=2.5, filename='earthquake_data.csv'):
+def fetch_data(start_time, end_time, min_magnitude=2.5, filename='earthquake_data.csv', write_header=False):
     """
     Fetches earthquake data for the specified time period and appends it to the given CSV file.
     
@@ -29,6 +11,7 @@ def fetch_data(start_time, end_time, min_magnitude=2.5, filename='earthquake_dat
         end_time (str): The end date in YYYY-MM-DD format.
         min_magnitude (float): The minimum magnitude of earthquakes to fetch.
         filename (str): The name of the file to save data to.
+        write_header (bool): Whether to write headers or not.
     """
     # USGS Earthquake API endpoint
     url = 'https://earthquake.usgs.gov/fdsnws/event/1/query'
@@ -49,16 +32,15 @@ def fetch_data(start_time, end_time, min_magnitude=2.5, filename='earthquake_dat
     if response.status_code == 200:
         print(f'Data retrieved for {start_time} to {end_time} successfully!')
         
+        # Convert the response content to a pandas DataFrame
+        from io import StringIO
+        csv_data = StringIO(response.text)
+        df = pd.read_csv(csv_data)
+        
         # Append the data to the CSV file
-        with open(filename, 'a', encoding='utf-8') as f:
-            f.write(response.text)
+        df.to_csv(filename, mode='a', header=write_header, index=False)
     else:
         print(f'Error fetching data for {start_time} to {end_time}. HTTP Status code: {response.status_code}')
-
-
-# -----------------------------------
-# Step 2: Fetch earthquake data in chunks by month
-# -----------------------------------
 
 def fetch_data_by_month(start_year, start_month, num_months, min_magnitude=2.5, output_csv='earthquake_data.csv'):
     """
@@ -71,12 +53,9 @@ def fetch_data_by_month(start_year, start_month, num_months, min_magnitude=2.5, 
         min_magnitude (float): The minimum magnitude of earthquakes to fetch.
         output_csv (str): The name of the output CSV file.
     """
-    # Start by creating an empty file with headers for the first request
-    with open(output_csv, 'w', encoding='utf-8') as f:
-        f.write('')  # Create an empty file to append to later
-    
-    # Calculate the start date and loop over the number of months
     current_date = datetime(year=start_year, month=start_month, day=1)
+    first_fetch = True  # Flag to control writing the header only once
+
     for _ in range(num_months):
         # Set the start and end time for the current month
         start_time = current_date.strftime('%Y-%m-%d')
@@ -89,32 +68,30 @@ def fetch_data_by_month(start_year, start_month, num_months, min_magnitude=2.5, 
             end_time = datetime.now().strftime('%Y-%m-%d')
 
         # Fetch the data for the current month
-        fetch_data(start_time, end_time, min_magnitude=min_magnitude, filename=output_csv)
+        fetch_data(start_time, end_time, min_magnitude=min_magnitude, filename=output_csv, write_header=first_fetch)
+
+        # After the first fetch, set write_header to False
+        first_fetch = False
 
         # Move to the next month
         current_date = next_month
 
     print(f'\nAll data saved to {output_csv}')
 
-
-# -----------------------------------
-# Step 3: Main Execution Logic
-# -----------------------------------
-
 if __name__ == "__main__":
-    # # Specify the starting year and month for data retrieval
+    
+ # # Specify the starting year and month for data retrieval
     # start_year = int(input("Enter the starting year (e.g., 2023): "))
     # start_month = int(input("Enter the starting month (1-12): "))
     # num_months = int(input("Enter the number of months to retrieve: "))
-    
+
     # # Specify the minimum magnitude
     # min_magnitude = float(input("Enter the minimum magnitude to filter by (e.g., 2.5): "))
-    
-    
-        # Specify the starting year and month for data retrieval
+    # Specify the starting year and month for data 
+
     start_year = 2000
     start_month = 1
-    num_months = 120
+    num_months = 2
     
     # Specify the minimum magnitude
     min_magnitude = 0

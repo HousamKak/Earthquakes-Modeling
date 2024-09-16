@@ -1,5 +1,3 @@
-# main.py
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -11,7 +9,9 @@ from pnn_model import ProbabilisticNeuralNetwork
 
 # Load the data
 data_path = './src/data/earthquake_data.csv'
-df = pd.read_csv(data_path)
+
+# Use low_memory=False to avoid dtype warning from large CSV file
+df = pd.read_csv(data_path, low_memory=False)
 
 # Feature Engineering
 feature_engineer = FeatureEngineering(window_size=10)

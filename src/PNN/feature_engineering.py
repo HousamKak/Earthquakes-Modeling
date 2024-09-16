@@ -10,7 +10,10 @@ class FeatureEngineering:
         """
         Computes the slope (b-value) of the Gutenberg-Richter law.
         """
-        # Filter valid numeric magnitudes
+        # Convert all values to numeric, forcing errors to NaN
+        magnitudes = pd.to_numeric(magnitudes, errors='coerce')
+
+        # Filter out NaN values (non-numeric or missing data)
         magnitudes = magnitudes[~np.isnan(magnitudes)]
         
         if len(magnitudes) > 1:
@@ -28,13 +31,14 @@ class FeatureEngineering:
         Extracts seismicity indicators as per the paper.
         """
         # Convert the 'time' column to datetime, using errors='coerce' to handle invalid formats
-        df['time'] = pd.to_datetime(df['time'], errors='coerce')
+        df.loc[:, 'time'] = pd.to_datetime(df['time'], errors='coerce')
 
         # Drop rows where 'time' is NaT (invalid times)
         df = df.dropna(subset=['time'])
 
-        # Convert 'mag' column to numeric, forcing errors to NaN
-        df['mag'] = pd.to_numeric(df['mag'], errors='coerce')
+        # Convert 'mag' column to numeric, forcing errors to NaN using .loc to avoid SettingWithCopyWarning
+        df = df.copy()  # Explicitly create a copy of the DataFrame
+        df.loc[:, 'mag'] = pd.to_numeric(df['mag'], errors='coerce')
 
         # Drop rows with NaN magnitudes
         df = df.dropna(subset=['mag'])
